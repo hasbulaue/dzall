@@ -1,35 +1,53 @@
-from telebot import TeleBot
-import requests
-from bs4 import BeautifulSoup
+import telebot
+token = ''
 
-token = '8417444268:AAEYy2ry9-jRTeTI6zGwovN1rK7p42weaoI'
-bot = TeleBot(token)
-
-
-
+bot = telebot.TeleBot(token)
 @bot.message_handler(commands=['start'])
 def start_message(message):
-    bot.reply_to(message, "Hello i can parsing your website\n",
-                'Commands: /parse <url>\n',
-                '/help - show this message\n')
-    
-@bot.message_handler(commands=['help'])
-def help_message(message):
-    return start_message(message)
+    bot.send_message(message.chat.id, 'Hello, i am a bot. I can save your messages ')
 
-@bot.message_handler(commands=['parse'])
-def parse_message(message):
-    bot.reply_to(message, "Please enter the URL to parse")
-    bot.register_next_step_handler(message, parse_url)
-def parse_url(message):
-    url = message.text
-    try:
-        response = requests.get(url)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        title = soup.title.string
-        description = soup.find('meta', attrs={'name': 'description'})['content']
-        image = soup.find('meta', attrs={'property': 'og:image'})['content']
-        bot.reply_to(message, f"Title: {title}\nDescription: {description}\nImage: {image}")
-    except:
-        bot.reply_to(message, "Error: Invalid URL")
+@bot.message_handler(commands = ['save_text'])
+def save_message(message):
+    bot.send_message(message.chat.id, 'Send me a message to save')
+    bot.register_next_step_handler(message, save_text)
+def save_text(message):
+    with open('messages.txt', 'a', encoding = 'utf-8') as file:
+        file.write(f'{message.chat.id}: {message.text}\n')
+        bot.send_message(message.chat.id, 'Message saved')
+@bot.message_handler(content_types=['photo'])
+def save_photo(message):
+    name = message.from_user.username
+    file_info = bot.get_file(message.photo[-1].file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
+    with open('photos/' + name + '.jpg' , 'wb') as new_file:
+        new_file.write(downloaded_file)
+        bot.send_message(message.chat.id, 'Photo saved')
+
+@bot.message_handler(content_types=['document'])
+def save_document(message):
+    name = message.from_user.username
+    file_info = bot.get_file(message.document.file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
+    with open('documents/' + name, 'wb') as new_file:
+        new_file.write(downloaded_file)
+        bot.send_message(message.chat.id, 'Document saved')
+
+
+
+
+
+@bot.message_handler(commands=['get_photo'])
+def get_photo(message):
+    name = message.from_user.username
+    with open('photos/' + name + '.jpg', 'rb') as file:
+        bot.send_photo(message.chat.id, file)
+@bot.message_handler(commands = ['get_text'])
+def get_text(message):
+    for line in open('messages.txt', 'r', encoding = 'utf-8'):
+        chat_id, text = line.strip().split(': ')
+        if chat_id == str(message.chat.id):
+            bot.send_message(message.chat.id, text)   
+        else:
+            None
+        
 bot.polling()
